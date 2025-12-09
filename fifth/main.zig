@@ -54,6 +54,36 @@ fn get_ranges(iter: *std.mem.SplitIterator(u8, std.mem.DelimiterType.sequence)) 
     return list;
 }
 
+pub fn filter_ranges(ranges: std.ArrayList(Range)) !std.ArrayList(Range) {
+    var list = try std.ArrayList(Range).initCapacity(allocator, 0);
+    var i: usize = 0;
+    while (i < ranges.items.len) {
+        const range = ranges.items[i];
+        var j: usize = i+1;
+        var did_overlap = false;
+        while (j < ranges.items.len) {
+            const _range = ranges.items[j];
+            if (
+                (range.max >= _range.min and range.min <= _range.min) or
+                (range.max >= _range.max and range.min <= _range.max)
+            ) {
+                const new_range: Range = .{
+                    .min = @min(range.min, _range.min),
+                    .max = @max(range.max, _range.max),
+                };
+                ranges.items[j] = new_range;
+                did_overlap = true;
+            }
+            j += 1;
+        }
+        if (!did_overlap) {
+            try list.append(allocator, range);
+        }
+        i += 1;
+    }
+    return list;
+}
+
 pub fn main() !void {
     const argv = std.os.argv;
     if (argv.len < 2) {
@@ -66,7 +96,8 @@ pub fn main() !void {
     defer allocator.free(input);
 
     var iter = std.mem.splitSequence(u8, input, "\n");
-    const ranges = try get_ranges(&iter);
+    const raw_ranges = try get_ranges(&iter);
+    const ranges = try filter_ranges(raw_ranges);
 
     var sum: usize = 0;
     while (iter.next()) |line| {
@@ -80,5 +111,11 @@ pub fn main() !void {
         }
     }
 
-    std.debug.print("{d}\n", .{sum});
+    std.debug.print("first part: {d}\n", .{sum});
+
+    sum = 0;
+    for (ranges.items) |range| {
+        sum += range.max - range.min + 1;
+    }
+    std.debug.print("second part: {d}\n", .{sum});
 }
