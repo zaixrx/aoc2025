@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const allocator = std.heap.page_allocator;
+const print = std.debug.print;
 
 const Range = struct {
     min: usize,
@@ -23,17 +24,17 @@ fn read_entire_file(file_path: []const u8) ![]u8 {
 }
 
 fn get_number(buffer: []const u8, offset: *usize) !usize {
-    var end = offset.*;
-    for (offset.*.., buffer) |idx, val| {
-        if (is_invalid_digit(val)) {
+    var idx = offset.*;
+    while (idx < buffer.len) {
+        if (is_invalid_digit(buffer[idx])) {
             break;
         }
-        end = idx+1;
+        idx += 1;
     }
-    const slice = buffer[offset.*..end];
-    offset.* = end+1;
+    const slice = buffer[offset.*..idx];
     if (slice.len > 0) {
-        return std.fmt.parseInt(usize, slice, 10);
+        offset.* = idx+1;
+        return try std.fmt.parseInt(usize, slice, 10);
     } else {
         return 0;
     }
@@ -46,8 +47,8 @@ fn get_ranges(iter: *std.mem.SplitIterator(u8, std.mem.DelimiterType.sequence)) 
             break;
         }
         var offset: usize = 0;
-        const min = get_number(line, &offset) catch 0;
-        const max = get_number(line, &offset) catch 0;
+        const min = try get_number(line, &offset);
+        const max = try get_number(line, &offset);
         try list.append(allocator, .{.min = min, .max = max});
     }
     return list;
@@ -70,10 +71,9 @@ pub fn main() !void {
     var sum: usize = 0;
     while (iter.next()) |line| {
         var offset: usize = 0;
-        std.debug.print("{s}\n", .{line});
         const num = try get_number(line, &offset);
         for (ranges.items) |range| {
-            if (range.min <= num or num <= range.max) {
+            if (range.min <= num and num <= range.max) {
                 sum += 1;
                 break;
             }
